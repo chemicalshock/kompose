@@ -190,6 +190,35 @@
         return output.filter(Boolean).join('\n\n');
     }
 
+    const iconPaths = {
+        bullets: 'M5 5h.01M5 10h.01M5 15h.01M9 5h8M9 10h8M9 15h8',
+        numbers: 'M9 5h8M9 10h8M9 15h8M3 4l1-1v4M3 10a1 1 0 1 1 2 0l-2 2h2M3 15h2l-1 1 1 1H3',
+        quote: 'M4 11h4v5H3v-5l2-5m7 5h4v5h-5v-5l2-5',
+        code: 'm7 5-5 5 5 5m6-10 5 5-5 5m-2-12-2 14',
+        link: 'm8 12 4-4m-6 6-1 1a3 3 0 0 1-4-4l4-4a3 3 0 0 1 4 0m2 6a3 3 0 0 0 4 0l4-4a3 3 0 0 0-4-4l-1 1',
+        undo: 'M7 4 2 9l5 5M2 9h10a5 5 0 0 1 0 10h-2',
+        redo: 'm13 4 5 5-5 5m5-5H8a5 5 0 0 0 0 10h2',
+    };
+
+    function toolbarIcon(document, name) {
+        if (!(name in iconPaths)) {
+            const glyph = document.createElement('span');
+            glyph.className = 'kompose-glyph kompose-glyph-' + name;
+            glyph.textContent = { bold: 'B', italic: 'I', text: '¶', heading: 'H₂' }[name];
+            glyph.setAttribute('aria-hidden', 'true');
+            return glyph;
+        }
+        const namespace = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(namespace, 'svg');
+        svg.setAttribute('viewBox', '0 0 20 20');
+        svg.setAttribute('aria-hidden', 'true');
+        svg.setAttribute('focusable', 'false');
+        const path = document.createElementNS(namespace, 'path');
+        path.setAttribute('d', iconPaths[name]);
+        svg.append(path);
+        return svg;
+    }
+
     function mount(textarea) {
         if (textarea?.tagName !== 'TEXTAREA') {
             throw new TypeError('Kompose.mount expects a textarea.');
@@ -238,39 +267,77 @@
 
         function restoreSelection() {
             const current = document.getSelection();
+            const saved = selection;
             surface.focus();
-            if (selection && surface.contains(selection.commonAncestorContainer)) {
+            if (saved && surface.contains(saved.commonAncestorContainer)) {
                 current.removeAllRanges();
-                current.addRange(selection);
+                current.addRange(saved);
             }
             return current;
         }
 
-        function button(text, action) {
+        function group(name) {
+            const element = document.createElement('div');
+            element.className = 'kompose-toolbar-group';
+            element.setAttribute('role', 'group');
+            element.setAttribute('aria-label', name);
+            toolbar.append(element);
+            return element;
+        }
+
+        function button(label, action, container, icon = '') {
             const control = document.createElement('button');
             control.type = 'button';
-            control.textContent = text;
+            if (icon) {
+                control.className = 'kompose-icon-button';
+                control.setAttribute('aria-label', label);
+                control.title = label;
+                control.append(toolbarIcon(document, icon));
+            } else {
+                control.textContent = label;
+            }
             control.addEventListener('mousedown', event => event.preventDefault());
             control.addEventListener('click', action);
-            toolbar.append(control);
+            container.append(control);
             return control;
         }
 
-        const commands = [
-            ['Bold', 'bold'], ['Italic', 'italic'], ['Text', 'formatBlock', 'p'],
-            ['Heading', 'formatBlock', 'h2'], ['Bullets', 'insertUnorderedList'],
-            ['Numbers', 'insertOrderedList'], ['Quote', 'formatBlock', 'blockquote'],
-            ['Code block', 'formatBlock', 'pre'], ['Undo', 'undo'], ['Redo', 'redo']
+        const pressed = new Map();
+        const groups = [
+            ['History', [['Undo', 'undo', 'undo'], ['Redo', 'redo', 'redo']]],
+            ['Text', [
+                ['Bold', 'bold', 'bold'], ['Italic', 'italic', 'italic'],
+                ['Paragraph', 'text', 'formatBlock', 'p'], ['Heading', 'heading', 'formatBlock', 'h2'],
+            ]],
+            ['Lists', [['Bullets', 'bullets', 'insertUnorderedList'], ['Numbers', 'numbers', 'insertOrderedList']]],
+            ['Insert', [['Quote', 'quote', 'formatBlock', 'blockquote'], ['Code block', 'code', 'formatBlock', 'pre']]],
         ];
-        const formatButtons = commands.filter(([, command]) => document.queryCommandSupported?.(command))
-            .map(([name, command, value]) => button(name, () => {
-                restoreSelection();
-                document.execCommand(command, false, value ?? null);
-                sync();
-            }));
+        const formatGroups = [];
+        for (const [name, commands] of groups) {
+            const supported = commands.filter(([, , command]) => document.queryCommandSupported?.(command));
+            if (!supported.length) {
+                continue;
+            }
+            const container = group(name);
+            formatGroups.push(container);
+            for (const [label, icon, command, value] of supported) {
+                const control = button(label, () => {
+                    restoreSelection();
+                    document.execCommand(command, false, value ?? null);
+                    sync();
+                    rememberSelection();
+                }, container, icon);
+                if (['bold', 'italic', 'insertUnorderedList', 'insertOrderedList'].includes(command)) {
+                    control.setAttribute('aria-pressed', 'false');
+                    pressed.set(command, control);
+                }
+            }
+        }
 
         if (document.queryCommandSupported?.('createLink')) {
-            formatButtons.push(button('Link', () => {
+            const linkGroup = group('Links');
+            formatGroups.push(linkGroup);
+            button('Link', () => {
                 if (restoreSelection().isCollapsed) {
                     report('Select the text to link first.');
                     return;
@@ -287,9 +354,11 @@
                 restoreSelection();
                 document.execCommand('createLink', false, url);
                 sync();
-            }));
+            }, linkGroup, 'link');
         }
 
+        const modeGroup = group('Editor mode');
+        modeGroup.classList.add('kompose-toolbar-mode');
         const toggle = button('Markdown', () => {
             sourceMode = !sourceMode;
             if (!sourceMode) {
@@ -299,23 +368,30 @@
             textarea.hidden = !sourceMode;
             textarea.required = sourceMode && required;
             surface.hidden = sourceMode;
-            formatButtons.forEach(control => { control.hidden = sourceMode; });
+            formatGroups.forEach(container => { container.hidden = sourceMode; });
             toggle.textContent = sourceMode ? 'Visual editor' : 'Markdown';
             if (label && surface.id) {
                 label.htmlFor = sourceMode ? textarea.id : surface.id;
             }
             report('');
             (sourceMode ? textarea : surface).focus();
-        });
+        }, modeGroup);
 
         function rememberSelection() {
             const current = document.getSelection();
             if (current.rangeCount && surface.contains(current.getRangeAt(0).commonAncestorContainer)) {
                 selection = current.getRangeAt(0).cloneRange();
+                for (const [command, control] of pressed) {
+                    control.setAttribute('aria-pressed', String(document.queryCommandState?.(command) ?? false));
+                }
             }
         }
 
-        surface.addEventListener('input', sync);
+        surface.addEventListener('input', () => {
+            sync();
+            rememberSelection();
+        });
+        surface.addEventListener('focus', rememberSelection);
         surface.addEventListener('keyup', rememberSelection);
         surface.addEventListener('pointerup', rememberSelection);
         surface.addEventListener('click', event => {

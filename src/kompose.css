@@ -35,16 +35,50 @@
     border-radius: .35rem .35rem 0 0;
 }
 
+.kompose-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: .125rem;
+    padding-inline-end: .35rem;
+    border-inline-end: 1px solid var(--kompose-border);
+}
+
+.kompose-toolbar-mode {
+    margin-inline-start: auto;
+    padding-inline-end: 0;
+    border-inline-end: 0;
+}
+
 .kompose-toolbar button {
-    background: var(--kompose-surface);
-    border: 1px solid var(--kompose-border);
+    display: inline-grid;
+    min-height: 2rem;
+    place-items: center;
+    padding: .2rem .55rem;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: .25rem;
     color: inherit;
     cursor: pointer;
     font: inherit;
     font-size: .85em;
-    padding: .2rem .55rem;
 }
+
+.kompose-toolbar .kompose-icon-button { width: 2rem; padding: 0; }
+.kompose-toolbar button:hover { background: var(--kompose-surface); border-color: var(--kompose-border); }
+.kompose-toolbar button[aria-pressed="true"] { background: var(--kompose-surface); border-color: var(--kompose-focus); }
+.kompose-toolbar svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.kompose-glyph { font-family: Georgia, serif; font-size: 1.05rem; line-height: 1; }
+.kompose-glyph-bold, .kompose-glyph-heading { font-weight: 700; }
+.kompose-glyph-italic { font-style: italic; font-weight: 650; }
 
 .kompose-surface {
     min-height: 9rem;
