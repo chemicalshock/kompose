@@ -1,0 +1,67 @@
+/*
+// -------------------------------------------------------------
+//
+//!\file kompose.css
+//!\brief Layout and theme defaults for Kompose.
+//!\author Colin J.D. Stewart
+//
+// -------------------------------------------------------------
+//
+//           Copyright (c) 2026. Colin J.D. Stewart.
+//                   All rights reserved
+//
+// -------------------------------------------------------------
+*/
+.kompose {
+    --kompose-border: #a0a8b0;
+    --kompose-toolbar: #f1f3f5;
+    --kompose-surface: #fff;
+    --kompose-text: #222;
+    --kompose-focus: #2563eb;
+    margin-bottom: 1rem;
+    color: var(--kompose-text);
+}
+
+.kompose [hidden] { display: none !important; }
+
+.kompose-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    padding: .45rem;
+    background: var(--kompose-toolbar);
+    border: 1px solid var(--kompose-border);
+    border-bottom: 0;
+    border-radius: .35rem .35rem 0 0;
+}
+
+.kompose-toolbar button {
+    background: var(--kompose-surface);
+    border: 1px solid var(--kompose-border);
+    border-radius: .25rem;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: .85em;
+    padding: .2rem .55rem;
+}
+
+.kompose-surface {
+    min-height: 9rem;
+    padding: .7rem .85rem;
+    overflow-wrap: anywhere;
+    background: var(--kompose-surface);
+    border: 1px solid var(--kompose-border);
+    border-radius: 0 0 .35rem .35rem;
+}
+
+.kompose-surface:focus, .kompose-toolbar button:focus-visible {
+    outline: 2px solid var(--kompose-focus);
+    outline-offset: -2px;
+}
+
+.kompose-surface > :last-child { margin-bottom: 0; }
+.kompose-surface blockquote { border-inline-start: 3px solid var(--kompose-border); padding-inline-start: .75rem; }
+.kompose-surface pre { white-space: pre-wrap; }
+.kompose-surface img { max-width: 100%; height: auto; }
+.kompose-status { margin-top: .4rem; }
