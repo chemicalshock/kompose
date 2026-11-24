@@ -9,10 +9,14 @@ source for direct editing. Without JavaScript, the original textarea works as
 usual. Multiple textareas can be mounted independently.
 
 The visual editor supports bold, italic, headings, links, lists, block quotes,
-and indented code blocks. Pasting inserts plain text. Raw HTML and other
+and fenced or indented code blocks. Pasting inserts plain text. Raw HTML and other
 Markdown dialects are outside the visual editor’s format. Existing source is
 preserved until the visual document changes.
 
 Toolbar commands use browser-native editing where available to preserve undo.
 The source editor remains available when a browser lacks a formatting command.
 Override the `--kompose-*` CSS variables on the editor to match its host page.
+
+Pass `Kompose.mount(textarea, { highlighter, defaultCodeLanguage: 'ziron' })`
+with a Codeglint instance to enable a per-block language menu and preview.
+The selected language is saved in the Markdown fence.

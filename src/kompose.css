@@ -18,6 +18,7 @@
     --kompose-surface: #fff;
     --kompose-text: #222;
     --kompose-focus: #2563eb;
+    position: relative;
     margin-bottom: 1rem;
     color: var(--kompose-text);
 }
@@ -64,6 +65,28 @@
 }
 
 .kompose-toolbar .kompose-icon-button { width: 2rem; padding: 0; }
+.kompose-code-language {
+    min-height: 2rem;
+    max-width: 9rem;
+    padding: .2rem .4rem;
+    border: 1px solid var(--kompose-border);
+    border-radius: .25rem;
+    background: var(--kompose-surface);
+    color: inherit;
+    font: inherit;
+    font-size: .85em;
+}
+.kompose-code-preview {
+    margin: .4rem 0 0;
+    padding: .65rem .85rem;
+    max-height: 12rem;
+    overflow: auto;
+    border: 1px solid var(--kompose-border);
+    border-radius: .3rem;
+    background: var(--kompose-surface);
+    white-space: pre;
+}
+.kompose-code-preview code { white-space: inherit; }
 .kompose-toolbar button:hover { background: var(--kompose-surface); border-color: var(--kompose-border); }
 .kompose-toolbar button[aria-pressed="true"] { background: var(--kompose-surface); border-color: var(--kompose-focus); }
 .kompose-toolbar svg {
@@ -79,6 +102,78 @@
 .kompose-glyph { font-family: Georgia, serif; font-size: 1.05rem; line-height: 1; }
 .kompose-glyph-bold, .kompose-glyph-heading { font-weight: 700; }
 .kompose-glyph-italic { font-style: italic; font-weight: 650; }
+
+.kompose-emoji-picker {
+    position: absolute;
+    z-index: 5;
+    inset-inline-end: 0;
+    box-sizing: border-box;
+    width: min(100%, 23rem);
+    display: grid;
+    gap: .5rem;
+    padding: .65rem;
+    background: var(--kompose-toolbar);
+    border: 1px solid var(--kompose-border);
+    border-radius: .4rem;
+    box-shadow: 0 .4rem 1rem #0003;
+}
+
+.kompose-emoji-picker input {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: .4rem .55rem;
+    border: 1px solid var(--kompose-border);
+    border-radius: .25rem;
+    background: var(--kompose-surface);
+    color: inherit;
+    font: inherit;
+    font-size: .85em;
+}
+
+.kompose-emoji-picker input::placeholder { color: inherit; opacity: .75; }
+
+.kompose-emoji-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .2rem;
+}
+
+.kompose-emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(2rem, 1fr));
+    gap: .15rem;
+    max-height: 12rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.kompose-emoji-picker [role="status"]:empty { display: none; }
+
+.kompose-emoji-picker button {
+    min-height: 2rem;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: .25rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.kompose-emoji-filters button { padding-inline: .4rem; font-size: .8em; }
+.kompose-emoji-filters button[aria-pressed="true"] {
+    border-color: var(--kompose-focus);
+    background: var(--kompose-surface);
+}
+
+.kompose-emoji-picker button:hover,
+.kompose-emoji-picker button:focus-visible,
+.kompose-toolbar button[aria-expanded="true"] {
+    border-color: var(--kompose-focus);
+    background: var(--kompose-surface);
+}
 
 .kompose-surface {
     min-height: 9rem;

@@ -17,6 +17,38 @@
 
     const editors = new WeakMap();
     const blocks = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'PRE', 'UL', 'OL', 'HR']);
+    const emojiCategories = {
+        Smileys: [
+            ['😀', 'Grinning face'], ['😊', 'Smiling face'], ['😂', 'Tears of joy laugh'], ['😉', 'Winking face'],
+            ['😎', 'Sunglasses'], ['🤔', 'Thinking face'], ['😮', 'Surprised face'], ['😅', 'Grinning with sweat'],
+            ['😢', 'Crying face'], ['😕', 'Confused face'], ['🙃', 'Upside-down face'], ['👀', 'Eyes'],
+            ['😍', 'Heart eyes'], ['😴', 'Sleeping face'], ['😡', 'Angry face'], ['🤯', 'Mind blown'],
+        ],
+        People: [
+            ['👍', 'Thumbs up'], ['👎', 'Thumbs down'], ['👏', 'Clapping hands'], ['🙌', 'Raised hands'],
+            ['🙏', 'Folded hands thanks'], ['👋', 'Waving hand'], ['🤝', 'Handshake'], ['👌', 'OK hand'],
+            ['✌️', 'Victory peace'], ['💪', 'Flexed biceps'], ['🤷', 'Shrug'], ['🤦', 'Facepalm'],
+        ],
+        Nature: [
+            ['🐛', 'Bug'], ['🐶', 'Dog'], ['🐱', 'Cat'], ['🦊', 'Fox'], ['🦋', 'Butterfly'], ['🌱', 'Seedling'],
+            ['🌳', 'Tree'], ['🌻', 'Sunflower'], ['☀️', 'Sun'], ['🌧️', 'Rain'], ['🌈', 'Rainbow'], ['🔥', 'Fire'],
+        ],
+        Food: [
+            ['🍕', 'Pizza'], ['🍔', 'Burger'], ['🍟', 'Fries'], ['🍿', 'Popcorn'], ['🍎', 'Apple'], ['🍰', 'Cake'],
+            ['🍪', 'Cookie'], ['🍫', 'Chocolate'], ['☕', 'Coffee'], ['🍵', 'Tea'], ['🍺', 'Beer'], ['🥤', 'Soft drink'],
+        ],
+        Objects: [
+            ['🎉', 'Party popper'], ['🎁', 'Gift'], ['💡', 'Light bulb idea'], ['🚀', 'Rocket'], ['💻', 'Laptop computer'],
+            ['⚙️', 'Gear settings'], ['🔧', 'Wrench'], ['⌨️', 'Keyboard'], ['📌', 'Pushpin'], ['🔍', 'Magnifying glass'],
+            ['📚', 'Books'], ['🔗', 'Link'], ['📷', 'Camera'], ['🏆', 'Trophy'],
+        ],
+        Symbols: [
+            ['❤️', 'Red heart'], ['💚', 'Green heart'], ['💙', 'Blue heart'], ['💔', 'Broken heart'], ['✅', 'Check mark'],
+            ['❌', 'Cross mark'], ['⭐', 'Star'], ['⚠️', 'Warning'], ['❓', 'Question mark'], ['❗', 'Exclamation mark'],
+            ['💯', 'Hundred points'], ['♻️', 'Recycle'], ['➕', 'Plus'], ['➡️', 'Right arrow'],
+        ],
+    };
+    const allEmojis = Object.values(emojiCategories).flat();
 
     function safeDestination(value) {
         const url = value.trim();
@@ -76,6 +108,21 @@
             const heading = line.match(/^(#{1,6})\s+(.*)$/);
             const bullet = /^\s*[-*+]\s+(.*)$/;
             const numbered = /^\s*\d+\.\s+(.*)$/;
+            const fence = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*([a-z][a-z0-9_+-]{0,31})?[ \t]*$/i);
+            if (fence) {
+                const closing = new RegExp('^ {0,3}' + fence[1][0] + '{' + fence[1].length + ',}[ \\t]*$');
+                const code = [];
+                index++;
+                while (index < lines.length && !closing.test(lines[index])) {
+                    code.push(lines[index++]);
+                }
+                if (index < lines.length) index++;
+                const pre = document.createElement('pre');
+                if (fence[2]) pre.dataset.codeLanguage = fence[2].toLowerCase();
+                pre.textContent = code.join('\n');
+                fragment.append(pre);
+                continue;
+            }
             if (line.startsWith('    ')) {
                 const code = [];
                 while (lines[index]?.startsWith('    ')) {
@@ -167,7 +214,15 @@
             if (tag === 'PRE') {
                 const code = node.innerText.replace(/\n$/, '');
                 if (code) {
-                    output.push(code.split('\n').map(line => '    ' + line).join('\n'));
+                    const language = node.dataset.codeLanguage ?? '';
+                    if (/^[a-z][a-z0-9_+-]{0,31}$/.test(language)) {
+                        const fence = '`'.repeat((code.match(/`+/g) ?? []).reduce(
+                            (longest, run) => Math.max(longest, run.length + 1), 3
+                        ));
+                        output.push(fence + language + '\n' + code + '\n' + fence);
+                    } else {
+                        output.push(code.split('\n').map(line => '    ' + line).join('\n'));
+                    }
                 }
             } else if (tag === 'BLOCKQUOTE') {
                 if (text) {
@@ -204,7 +259,7 @@
         if (!(name in iconPaths)) {
             const glyph = document.createElement('span');
             glyph.className = 'kompose-glyph kompose-glyph-' + name;
-            glyph.textContent = { bold: 'B', italic: 'I', text: '¶', heading: 'H₂' }[name];
+            glyph.textContent = { bold: 'B', italic: 'I', text: '¶', heading: 'H₂', emoji: '☺' }[name];
             glyph.setAttribute('aria-hidden', 'true');
             return glyph;
         }
@@ -219,7 +274,7 @@
         return svg;
     }
 
-    function mount(textarea) {
+    function mount(textarea, options = {}) {
         if (textarea?.tagName !== 'TEXTAREA') {
             throw new TypeError('Kompose.mount expects a textarea.');
         }
@@ -232,10 +287,19 @@
         const toolbar = document.createElement('div');
         const surface = document.createElement('div');
         const status = document.createElement('div');
+        const highlighter = options.highlighter;
+        const languages = highlighter?.listLanguages() ?? [];
+        const defaultLanguage = languages.includes(options.defaultCodeLanguage) ? options.defaultCodeLanguage : 'plaintext';
+        const codeLanguage = document.createElement('select');
+        const codePreview = document.createElement('pre');
+        const previewBody = document.createElement('code');
         const required = textarea.required;
         const maximum = textarea.maxLength;
         let sourceMode = false;
         let selection = null;
+        let newBlockLanguage = defaultLanguage;
+        let previewSource;
+        let previewLanguage;
 
         editor.className = 'kompose';
         toolbar.className = 'kompose-toolbar';
@@ -254,6 +318,34 @@
         status.className = 'kompose-status';
         status.setAttribute('role', 'status');
         status.hidden = true;
+        codePreview.className = 'kompose-code-preview';
+        codePreview.hidden = true;
+        codePreview.setAttribute('aria-label', 'Highlighted code preview');
+        previewBody.className = 'codeglint';
+        codePreview.append(previewBody);
+
+        function selectedCodeBlock() {
+            const node = selection?.startContainer;
+            const element = node?.nodeType === 1 ? node : node?.parentElement;
+            const block = element?.closest('pre');
+            return block && surface.contains(block) ? block : null;
+        }
+
+        function refreshCodePreview() {
+            if (!highlighter) return;
+            const block = sourceMode ? null : selectedCodeBlock();
+            const language = block
+                ? highlighter.getLanguage(block.dataset.codeLanguage || defaultLanguage, { fallback: true }).id
+                : newBlockLanguage;
+            codeLanguage.value = language;
+            const source = block?.innerText ?? '';
+            codePreview.hidden = !source || language === 'plaintext';
+            if (!codePreview.hidden && (source !== previewSource || language !== previewLanguage)) {
+                previewBody.innerHTML = highlighter.highlight(source, { language, fallback: true });
+                previewSource = source;
+                previewLanguage = language;
+            }
+        }
 
         function report(message) {
             status.textContent = message;
@@ -274,6 +366,22 @@
                 current.addRange(saved);
             }
             return current;
+        }
+
+        function insertVisualText(text) {
+            const current = restoreSelection();
+            if (!current.rangeCount || !surface.contains(current.getRangeAt(0).commonAncestorContainer)) {
+                current.selectAllChildren(surface);
+                current.collapseToEnd();
+            }
+            if (!document.execCommand?.('insertText', false, text)) {
+                current.deleteFromDocument();
+                const node = document.createTextNode(text);
+                current.getRangeAt(0).insertNode(node);
+                current.collapse(node, node.length);
+            }
+            sync();
+            rememberSelection();
         }
 
         function group(name) {
@@ -324,14 +432,47 @@
                 const control = button(label, () => {
                     restoreSelection();
                     document.execCommand(command, false, value ?? null);
-                    sync();
                     rememberSelection();
+                    if (value === 'pre' && highlighter) {
+                        const block = selectedCodeBlock();
+                        if (block && !block.dataset.codeLanguage) block.dataset.codeLanguage = newBlockLanguage;
+                    }
+                    sync();
+                    refreshCodePreview();
                 }, container, icon);
                 if (['bold', 'italic', 'insertUnorderedList', 'insertOrderedList'].includes(command)) {
                     control.setAttribute('aria-pressed', 'false');
                     pressed.set(command, control);
                 }
             }
+        }
+
+        if (languages.length) {
+            const languageGroup = group('Code language');
+            formatGroups.push(languageGroup);
+            codeLanguage.className = 'kompose-code-language';
+            codeLanguage.setAttribute('aria-label', 'Code language');
+            codeLanguage.title = 'Code language for the selected or next code block';
+            const labels = { plaintext: 'Plain text', cpp: 'C / C++', javascript: 'JavaScript', json: 'JSON' };
+            for (const language of languages) {
+                const option = document.createElement('option');
+                option.value = language;
+                option.textContent = highlighter.getLanguage(language).name || labels[language] || language;
+                codeLanguage.append(option);
+            }
+            codeLanguage.value = newBlockLanguage;
+            codeLanguage.addEventListener('change', () => {
+                const block = selectedCodeBlock();
+                if (block) {
+                    block.dataset.codeLanguage = codeLanguage.value;
+                    sync();
+                    restoreSelection();
+                } else {
+                    newBlockLanguage = codeLanguage.value;
+                }
+                refreshCodePreview();
+            });
+            languageGroup.append(codeLanguage);
         }
 
         if (document.queryCommandSupported?.('createLink')) {
@@ -357,9 +498,113 @@
             }, linkGroup, 'link');
         }
 
+        const emojiPicker = document.createElement('div');
+        emojiPicker.className = 'kompose-emoji-picker';
+        emojiPicker.hidden = true;
+        emojiPicker.setAttribute('role', 'group');
+        emojiPicker.setAttribute('aria-label', 'Choose an emoji');
+        const emojiSearch = document.createElement('input');
+        emojiSearch.type = 'search';
+        emojiSearch.placeholder = 'Search emoji';
+        emojiSearch.setAttribute('aria-label', 'Search emoji');
+        emojiSearch.autocomplete = 'off';
+        const emojiFilters = document.createElement('div');
+        emojiFilters.className = 'kompose-emoji-filters';
+        emojiFilters.setAttribute('role', 'group');
+        emojiFilters.setAttribute('aria-label', 'Emoji categories');
+        const emojiGrid = document.createElement('div');
+        emojiGrid.className = 'kompose-emoji-grid';
+        const emojiStatus = document.createElement('div');
+        emojiStatus.setAttribute('role', 'status');
+        emojiPicker.append(emojiSearch, emojiFilters, emojiGrid, emojiStatus);
+        let category = 'All';
+
+        const emojiToggle = button('Insert emoji', () => {
+            rememberSelection();
+            if (emojiPicker.hidden) {
+                renderEmojis();
+                showEmojis(true);
+                emojiSearch.focus();
+            } else {
+                showEmojis(false);
+                emojiToggle.focus();
+            }
+        }, group('Emoji'), 'emoji');
+        emojiToggle.setAttribute('aria-expanded', 'false');
+
+        function dismissEmojis(event) {
+            if (!emojiPicker.contains(event.target) && !emojiToggle.contains(event.target)) {
+                showEmojis(false);
+            }
+        }
+
+        function showEmojis(visible) {
+            emojiPicker.hidden = !visible;
+            emojiToggle.setAttribute('aria-expanded', String(visible));
+            if (visible) {
+                document.addEventListener('pointerdown', dismissEmojis);
+            } else {
+                document.removeEventListener('pointerdown', dismissEmojis);
+            }
+        }
+
+        function renderEmojis() {
+            const query = emojiSearch.value.trim().toLowerCase();
+            const entries = category === 'All' ? allEmojis : emojiCategories[category];
+            const matches = entries.filter(([emoji, name]) => emoji.includes(query) || name.toLowerCase().includes(query));
+            emojiGrid.replaceChildren();
+            for (const [emoji, name] of matches) {
+                const choice = button(emoji, () => {
+                    showEmojis(false);
+                    if (sourceMode) {
+                        textarea.setRangeText(emoji, textarea.selectionStart, textarea.selectionEnd, 'end');
+                        textarea.focus();
+                        textarea.dispatchEvent(new document.defaultView.Event('input', { bubbles: true }));
+                    } else {
+                        insertVisualText(emoji);
+                    }
+                }, emojiGrid);
+                choice.setAttribute('aria-label', name);
+                choice.title = name;
+            }
+            emojiGrid.scrollTop = 0;
+            emojiStatus.textContent = matches.length ? '' : 'No emoji found.';
+        }
+
+        for (const name of ['All', ...Object.keys(emojiCategories)]) {
+            const filter = button(name, () => {
+                category = name;
+                for (const control of emojiFilters.children) {
+                    control.setAttribute('aria-pressed', String(control.textContent === category));
+                }
+                renderEmojis();
+            }, emojiFilters);
+            filter.setAttribute('aria-pressed', String(name === category));
+        }
+        emojiSearch.addEventListener('input', renderEmojis);
+        emojiSearch.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === 'ArrowDown') {
+                event.preventDefault();
+                emojiGrid.firstElementChild?.focus();
+            }
+        });
+        editor.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && !emojiPicker.hidden) {
+                event.preventDefault();
+                showEmojis(false);
+                emojiToggle.focus();
+            }
+        });
+        editor.addEventListener('focusout', event => {
+            if (event.relatedTarget && !editor.contains(event.relatedTarget)) {
+                showEmojis(false);
+            }
+        });
+
         const modeGroup = group('Editor mode');
         modeGroup.classList.add('kompose-toolbar-mode');
         const toggle = button('Markdown', () => {
+            showEmojis(false);
             sourceMode = !sourceMode;
             if (!sourceMode) {
                 loadMarkup(surface, textarea.value);
@@ -374,6 +619,7 @@
                 label.htmlFor = sourceMode ? textarea.id : surface.id;
             }
             report('');
+            refreshCodePreview();
             (sourceMode ? textarea : surface).focus();
         }, modeGroup);
 
@@ -384,6 +630,7 @@
                 for (const [command, control] of pressed) {
                     control.setAttribute('aria-pressed', String(document.queryCommandState?.(command) ?? false));
                 }
+                refreshCodePreview();
             }
         }
 
@@ -402,19 +649,10 @@
         surface.addEventListener('paste', event => {
             event.preventDefault();
             const text = event.clipboardData?.getData('text/plain') ?? '';
-            if (!text) {
-                return;
+            if (text) {
+                rememberSelection();
+                insertVisualText(text);
             }
-            if (!document.execCommand?.('insertText', false, text)) {
-                const current = document.getSelection();
-                if (current.rangeCount && surface.contains(current.getRangeAt(0).commonAncestorContainer)) {
-                    current.deleteFromDocument();
-                    const node = document.createTextNode(text);
-                    current.getRangeAt(0).insertNode(node);
-                    current.collapse(node, node.length);
-                }
-            }
-            sync();
         });
         surface.addEventListener('drop', event => event.preventDefault());
 
@@ -430,11 +668,12 @@
         textarea.form?.addEventListener('reset', () => queueMicrotask(() => {
             loadMarkup(surface, textarea.value);
             selection = null;
+            refreshCodePreview();
             report('');
         }));
 
         textarea.before(editor);
-        editor.append(toolbar, surface, textarea, status);
+        editor.append(toolbar, emojiPicker, surface, textarea, codePreview, status);
         loadMarkup(surface, textarea.value);
         label?.addEventListener('click', event => {
             if (!sourceMode) {
