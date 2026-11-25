@@ -10,8 +10,7 @@ usual. Multiple textareas can be mounted independently.
 
 The visual editor supports bold, italic, headings, links, lists, block quotes,
 and fenced or indented code blocks. Pasting inserts plain text. Raw HTML and other
-Markdown dialects are outside the visual editor’s format. Existing source is
-preserved until the visual document changes.
+Markdown dialects are outside the visual editor's format. Existing source is preserved until the visual document changes.
 
 Toolbar commands use browser-native editing where available to preserve undo.
 The source editor remains available when a browser lacks a formatting command.

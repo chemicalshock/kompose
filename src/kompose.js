@@ -50,6 +50,9 @@
     };
     const allEmojis = Object.values(emojiCategories).flat();
 
+    //
+    //!\brief Returns a safe URL for use in links and images, or an empty string if the URL is unsafe.
+    //
     function safeDestination(value) {
         const url = value.trim();
         if (!url || /[\s\\\u0000-\u001f\u007f]/.test(url)) {
@@ -62,13 +65,18 @@
         return url.replaceAll('(', '%28').replaceAll(')', '%29');
     }
 
+    //
+    //!\brief Renders inline Markdown into a parent element.
+    //
     function inline(document, parent, text) {
         const syntax = /`([^`]+)`|(!?)\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\*\*(.+?)\*\*|\*([^*]+)\*/g;
         let cursor = 0;
+
         for (const match of text.matchAll(syntax)) {
             parent.append(text.slice(cursor, match.index));
             cursor = match.index + match[0].length;
             const [, code, image, label, url, bold, italic] = match;
+            
             if (code !== undefined) {
                 const element = document.createElement('code');
                 element.textContent = code;
@@ -97,6 +105,9 @@
         parent.append(text.slice(cursor));
     }
 
+    //
+    //!\brief Renders Markdown into the visual editor.
+    //
     function loadMarkup(surface, markup) {
         const document = surface.ownerDocument;
         const fragment = document.createDocumentFragment();
@@ -172,6 +183,9 @@
         surface.replaceChildren(fragment);
     }
 
+    //
+    //!\brief Converts an inline DOM node to Markdown.
+    //
     function inlineMarkup(node) {
         if (node.nodeType === 3) {
             return node.data.replaceAll('\u00a0', ' ');
@@ -197,6 +211,9 @@
         }
     }
 
+    //
+    //!\brief Serializes the visual editor content to Markdown.
+    //
     function toMarkup(surface) {
         const output = [];
         let pending = '';
@@ -255,6 +272,9 @@
         redo: 'm13 4 5 5-5 5m5-5H8a5 5 0 0 0 0 10h2',
     };
 
+    //
+    //!\brief Creates the toolbar icon for a named action.
+    //
     function toolbarIcon(document, name) {
         if (!(name in iconPaths)) {
             const glyph = document.createElement('span');
@@ -274,6 +294,9 @@
         return svg;
     }
 
+    //
+    //!\brief Mounts the Markdown editor on a textarea.
+    //
     function mount(textarea, options = {}) {
         if (textarea?.tagName !== 'TEXTAREA') {
             throw new TypeError('Kompose.mount expects a textarea.');
@@ -324,6 +347,9 @@
         previewBody.className = 'codeglint';
         codePreview.append(previewBody);
 
+        //
+        //!\brief Returns the code block containing the saved selection.
+        //
         function selectedCodeBlock() {
             const node = selection?.startContainer;
             const element = node?.nodeType === 1 ? node : node?.parentElement;
@@ -331,6 +357,9 @@
             return block && surface.contains(block) ? block : null;
         }
 
+        //
+        //!\brief Updates the language selector and highlighted code preview.
+        //
         function refreshCodePreview() {
             if (!highlighter) return;
             const block = sourceMode ? null : selectedCodeBlock();
@@ -347,16 +376,25 @@
             }
         }
 
+        //
+        //!\brief Displays or clears the editor status message.
+        //
         function report(message) {
             status.textContent = message;
             status.hidden = !message;
         }
 
+        //
+        //!\brief Updates the textarea from the visual editor and clears the status.
+        //
         function sync() {
             textarea.value = toMarkup(surface);
             report('');
         }
 
+        //
+        //!\brief Focuses the visual editor and restores the saved selection.
+        //
         function restoreSelection() {
             const current = document.getSelection();
             const saved = selection;
@@ -368,6 +406,9 @@
             return current;
         }
 
+        //
+        //!\brief Inserts plain text into the visual editor at the saved selection.
+        //
         function insertVisualText(text) {
             const current = restoreSelection();
             if (!current.rangeCount || !surface.contains(current.getRangeAt(0).commonAncestorContainer)) {
@@ -384,6 +425,9 @@
             rememberSelection();
         }
 
+        //
+        //!\brief Creates and appends a labeled toolbar group.
+        //
         function group(name) {
             const element = document.createElement('div');
             element.className = 'kompose-toolbar-group';
@@ -393,6 +437,9 @@
             return element;
         }
 
+        //
+        //!\brief Creates a toolbar button with its click action.
+        //
         function button(label, action, container, icon = '') {
             const control = document.createElement('button');
             control.type = 'button';
@@ -532,12 +579,18 @@
         }, group('Emoji'), 'emoji');
         emojiToggle.setAttribute('aria-expanded', 'false');
 
+        //
+        //!\brief Closes the emoji picker when the user clicks outside it.
+        //
         function dismissEmojis(event) {
             if (!emojiPicker.contains(event.target) && !emojiToggle.contains(event.target)) {
                 showEmojis(false);
             }
         }
 
+        //
+        //!\brief Sets whether the emoji picker is visible.
+        //
         function showEmojis(visible) {
             emojiPicker.hidden = !visible;
             emojiToggle.setAttribute('aria-expanded', String(visible));
@@ -548,6 +601,9 @@
             }
         }
 
+        //
+        //!\brief Updates the emoji grid for the current category and search.
+        //
         function renderEmojis() {
             const query = emojiSearch.value.trim().toLowerCase();
             const entries = category === 'All' ? allEmojis : emojiCategories[category];
@@ -623,6 +679,9 @@
             (sourceMode ? textarea : surface).focus();
         }, modeGroup);
 
+        //
+        //!\brief Saves the visual selection and updates the toolbar state.
+        //
         function rememberSelection() {
             const current = document.getSelection();
             if (current.rangeCount && surface.contains(current.getRangeAt(0).commonAncestorContainer)) {
